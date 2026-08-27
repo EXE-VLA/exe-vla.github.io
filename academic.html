@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EXE: Egocentric Cross-Embodiment Pretraining via Factorized Latent Actions for VLA Models</title>
+
+<meta name="description" content="EXE learns a factorized latent action representation from egocentric human videos, separating shared manipulation priors from embodiment-specific signals, to pretrain Vision-Language-Action models.">
+<meta name="robots" content="noindex, nofollow">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="EXE: Egocentric Cross-Embodiment Pretraining via Factorized Latent Actions for VLA Models">
+<meta property="og:description" content="Factorized latent actions transfer manipulation knowledge from egocentric human video to robots with grippers or dexterous hands.">
+<meta property="og:image" content="static/images/framework.jpg">
+
+<link rel="stylesheet" href="static/css/academic.css">
+</head>
+<body>
+
+<!-- ====================================================================== -->
+<!-- HERO                                                                    -->
+<!-- ====================================================================== -->
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">Under Review</span>
+
+    <h1 class="title">
+      <span class="exe">EXE</span>: Egocentric Cross-Embodiment Pretraining
+      via Factorized Latent Actions for VLA Models
+    </h1>
+
+    <p class="subtitle">
+      Separating <em>what transfers</em> from <em>what does not</em>, so that a robot can inherit
+      manipulation semantics from human hands without inheriting human kinematics.
+    </p>
+
+    <p class="authors">Anonymous Authors</p>
+    <p class="affil">Paper under double-blind review</p>
+
+    <div class="btnrow">
+      <a class="btn" href="static/paper/EXE_paper.pdf">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Paper
+      </a>
+      <span class="btn btn--soon">arXiv &middot; coming soon</span>
+      <span class="btn btn--soon">Code &middot; coming soon</span>
+    </div>
+  </div>
+</header>
+
+<!-- ====================================================================== -->
+<!-- TEASER                                                                  -->
+<!-- ====================================================================== -->
+<section>
+  <div class="wrap">
+    <figure>
+      <a href="static/images/framework.png" target="_blank" rel="noopener">
+        <img src="static/images/framework.jpg"
+             alt="EXE framework: Stage 2 cross-embodiment VLM pretraining and Stage 3 VLA fine-tuning.">
+      </a>
+      <figcaption>
+        <b>The EXE pipeline.</b> In <b>Stage&nbsp;2</b>, a VLM is co-trained on egocentric human video and
+        robot demonstrations to predict discrete action codes at appended placeholder positions &mdash;
+        <em>shared</em> codes for both domains, plus <em>specific</em> codes for robot data only.
+        In <em>Stage&nbsp;3</em>, the hidden states at those placeholder positions are reused as
+        <b>Bridge Features</b> and fed to an action expert that regresses continuous robot actions.
+        No tokenizer, codebook, or language model is involved at deployment.
+      </figcaption>
+      <p class="zoom-note">Click any figure to open the full-resolution version.</p>
+    </figure>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- ABSTRACT                                                                -->
+<!-- ====================================================================== -->
+<section class="alt">
+  <div class="wrap narrow">
+    <h2>Abstract</h2>
+    <p>
+      Vision-Language-Action (VLA) models are bottlenecked by the scarcity of robot data. Egocentric human
+      manipulation videos offer an abundant, diverse, and semantically-rich alternative that inherently
+      captures manipulation intent. However, the embodiment gap makes it difficult to extract
+      action-relevant representations from these videos. From the perspective of action execution, human
+      hands and robots share analogous manipulation primitives &mdash; reaching, grasping, placing &mdash;
+      yet exhibit distinct kinematics tied to their embodiments. This motivates our key approach:
+      egocentric video pretraining can yield shared action representations capturing transferable
+      manipulation skills, while human-specific motion patterns should be disentangled to avoid interfering
+      with robot policy learning.
+    </p>
+    <p>
+      To this end, we propose <strong>EXE</strong>, an <strong>E</strong>gocentric
+      Cross(<strong>X</strong>)-<strong>E</strong>mbodiment pretraining framework that learns a
+      <em class="tech">factorized latent action</em> representation from egocentric human videos, separating
+      shared manipulation priors from embodiment-specific signals. By leveraging the shared action space,
+      the robot policy acquires generalizable manipulation semantics from diverse human demonstrations
+      without being biased by human-specific kinematics. This shared knowledge transfers across embodiments
+      with different kinematic structures, enabling the same pretraining to benefit both parallel grippers
+      and dexterous hands. EXE yields consistent gains over baselines without pretraining on
+      RoboTwin&nbsp;2.0, RoboCasa&nbsp;GR1, and real-world manipulation tasks.
+    </p>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- MOTIVATION                                                              -->
+<!-- ====================================================================== -->
+<section>
+  <div class="wrap narrow">
+    <p class="eyebrow">Motivation</p>
+    <h2>Which parts of an action are worth sharing?</h2>
+    <p class="lede">
+      Two strategies have been tried to bridge the human&ndash;robot action gap, and each has a
+      structural limitation.
+    </p>
+
+    <p>
+      Forcing the <em>entire</em> action into a single shared codebook means the shared codes inevitably
+      absorb embodiment-specific geometry, which obscures the transferable task semantics. Learning latent
+      actions from raw visual frame transitions instead entangles the action signal with task-irrelevant
+      content such as background and lighting, so the resulting latents encode visual noise rather than
+      manipulation skill.
+    </p>
+
+    <div class="obs human">
+      <span class="tag">Observation 1 &mdash; what to share</span>
+      <p>
+        Certain dimensions of the action transfer better across embodiments than others. The
+        <strong>3D position</strong> of the wrist (human) or end-effector (robot) encodes spatial task
+        intent &mdash; reaching, trajectory following, target approaching &mdash; and is shared regardless
+        of kinematic structure. Finger joint configurations and gripper geometry, by contrast, are
+        embodiment-specific and do not generalize.
+      </p>
+    </div>
+
+    <div class="obs robot">
+      <span class="tag">Observation 2 &mdash; how to align</span>
+      <p>
+        Actions should be aligned not only when their spatial trajectories are similar, but also when they
+        carry the <strong>same task semantics despite dissimilar trajectories</strong>. A human grasping a
+        cup from above with five fingers and a robot clamping the same cup from the side with a parallel
+        gripper both execute &ldquo;grasp the cup,&rdquo; yet their trajectories differ substantially &mdash;
+        exactly the pairs a contrastive objective would wrongly push apart.
+      </p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <span class="n">01</span>
+        <h4>Feature group-routed tokenizer</h4>
+        <p>
+          Each action is factorized into a shareable positional subspace and an embodiment-specific
+          kinematic subspace. The former is quantized by a codebook trained jointly on human and robot
+          data; the latter keeps a private codebook per domain.
+        </p>
+      </div>
+      <div class="card">
+        <span class="n">02</span>
+        <h4>Dual cross-domain alignment</h4>
+        <p>
+          Contrastive learning pulls together cross-domain actions with similar spatial trajectories, while
+          frozen language embeddings supply pairwise semantic similarity as a soft target to align
+          semantically equivalent yet spatially dissimilar actions.
+        </p>
+      </div>
+      <div class="card">
+        <span class="n">03</span>
+        <h4>Three-stage pipeline</h4>
+        <p>
+          Train the factorized tokenizer, co-train the VLM on human video and robot data with shared-code
+          supervision, then fine-tune an action expert on downstream robot tasks through the shared action
+          codes.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- METHOD                                                                  -->
+<!-- ====================================================================== -->
+<section class="alt">
+  <div class="wrap">
+    <div class="narrow">
+      <p class="eyebrow">Method</p>
+      <h2>Stage 1 &middot; Factorized action tokenizer</h2>
+      <p class="lede">
+        Instead of quantizing the whole action jointly, we split it by cross-embodiment motion similarity,
+        route the transferable part to a shared codebook, and keep the rest in per-domain codebooks.
+      </p>
+    </div>
+
+    <figure>
+      <a href="static/images/tokenizer.png" target="_blank" rel="noopener">
+        <img src="static/images/tokenizer.jpg"
+             alt="Factorized action tokenizer with human specific, shared, and robot specific codebooks.">
+      </a>
+      <figcaption>
+        <b>Feature-group routing.</b> Human actions
+        (<var>a</var><sup>h</sup> &isin; &#8477;<sup>102</sup>, MANO wrist + finger joints) and robot actions
+        (<var>a</var><sup>r</sup> &isin; &#8477;<sup>20</sup>, end-effector pose + gripper) are each split by a
+        static routing table. The <b>3D wrist / end-effector position</b> goes to a
+        <b>shared codebook</b> updated from both domains; rotation, gripper state and finger joints go to
+        <b>per-domain specific codebooks</b>. Both positional signals are expressed in the egocentric camera
+        frame so they are geometrically comparable.
+      </figcaption>
+    </figure>
+
+    <div class="narrow">
+      <h3>Action factorization and quantization</h3>
+      <p>
+        An action vector <var>a</var> &isin; &#8477;<sup><var>D</var></sup> is partitioned into two
+        <em>disjoint</em> groups by semantic role:
+        the <strong>shared group</strong> <var>a</var><sup>(s)</sup> &isin; &#8477;<sup><var>D</var><sub>s</sub></sup>,
+        i.e. the 3D wrist or end-effector position (for bimanual embodiments
+        [<var>p</var><sub>L</sub> | <var>p</var><sub>R</sub>] &isin; &#8477;<sup>6</sup>);
+        and the <strong>specific group</strong> <var>a</var><sup>(p)</sup> &isin; &#8477;<sup><var>D</var><sub>p</sub></sup>,
+        the remaining embodiment-dependent dimensions. The partition
+        <var>D</var><sub>s</sub> + <var>D</var><sub>p</sub> = <var>D</var> is a static index map.
+      </p>
+      <p>
+        Each group runs through its own encoder&ndash;quantizer&ndash;decoder pipeline. The encoder combines
+        FFT-based frequency augmentation, dilated 1D convolutions and a Transformer stack. Latents and
+        codebook entries are &#8467;<sub>2</sub>-normalized before lookup, so code assignment follows cosine
+        similarity. Critically, unlike standard RVQ that applies all residual levels to the <em>full</em>
+        action latent, our residual quantization operates <em>within</em> each factorized group &mdash; so the
+        shared codebook never sees embodiment-specific dimensions.
+      </p>
+
+      <h3>Cross-domain alignment</h3>
+      <h4>Contrastive alignment on the shared codebook</h4>
+      <p>
+        A symmetric InfoNCE loss pulls together human and robot shared-group latents quantized to the same
+        shared code, and pushes apart latents assigned to different codes. For anchor <var>i</var>, the
+        positive set is
+        <var>P</var><sub><var>i</var></sub> = { <var>j</var> :
+        <var>c</var><sub><var>i</var></sub><sup>h</sup> = <var>c</var><sub><var>j</var></sub><sup>r</sup> }.
+        This encourages consistent code semantics across domains.
+      </p>
+
+      <h4>Language-guided relational distillation</h4>
+      <p>
+        Contrastive alignment alone faces a bootstrapping problem: because code assignment is determined by
+        spatial trajectory, human and robot actions for the same task get routed to <em>different</em> codes
+        whenever their trajectories differ &mdash; so they never become contrastive positives. Language breaks
+        this deadlock by providing an external semantic signal invariant to embodiment geometry. A frozen
+        Qwen3-Embedding-8B encodes each sample's instruction offline, and the resulting cross-domain text
+        similarity matrix serves as a detached soft target for the action similarity matrix:
+      </p>
+      <div class="eq">
+        &#8466;<sub>lang</sub> = &#8214; <var>S</var><sub>act</sub> &minus; <var>S</var><sub>text</sub> &#8214;<sub>F</sub><sup>2</sup>,
+        &nbsp;&nbsp;
+        <var>S</var><sub>text</sub>[<var>i</var>,<var>j</var>] = cos( <var>e</var><sub><var>i</var></sub><sup>h</sup>, <var>e</var><sub><var>j</var></sub><sup>r</sup> ),
+        &nbsp;
+        <var>S</var><sub>act</sub>[<var>i</var>,<var>j</var>] = cos( <var>z&#772;</var><sub><var>i</var></sub><sup>h</sup>, <var>z&#772;</var><sub><var>j</var></sub><sup>r</sup> )
+      </div>
+      <p>
+        The loss is computed only over cross-domain pairs, avoiding the degenerate within-domain case where
+        <var>S</var><sub>text</sub> &equiv; 1. Language never enters the encoder input &mdash; it acts purely as a
+        distributional shaping signal and is discarded after tokenizer training. The full Stage&nbsp;1
+        objective is:
+      </p>
+      <div class="eq">
+        &#8466;<sub>1</sub> = &#8466;<sub>tok</sub><sup>h</sup> + &#8466;<sub>tok</sub><sup>r</sup>
+        + &lambda;<sub>c</sub> &#8466;<sub>NCE</sub> + &lambda;<sub>l</sub> &#8466;<sub>lang</sub>
+      </div>
+
+      <h3>Stages 2 &amp; 3 &middot; From codes to control</h3>
+      <ol class="stages">
+        <li>
+          <b>Factorized tokenizer</b>
+          <span>
+            Trained jointly on human and robot action data with dual-domain steps, producing one shared
+            codebook and one specific codebook per domain. All tokenizer weights are then frozen.
+          </span>
+        </li>
+        <li>
+          <b>Cross-embodiment VLM pretraining</b>
+          <span>
+            A Florence-2-large backbone has its LM head vocabulary extended by <var>K</var><sub>s</sub>
+            entries. Training alternates between egocentric human video and robot demonstrations: human
+            steps supervise only the shared codes, robot steps supervise shared <em>and</em> robot-specific
+            codes. The action expert is not used here &mdash; this stage only shapes the backbone's internal
+            representations.
+          </span>
+        </li>
+        <li>
+          <b>VLA fine-tuning</b>
+          <span>
+            An action transformer is attached and trained on downstream robot data with continuous action
+            regression. Hidden states at the action-placeholder positions are extracted as
+            <b>Bridge Features</b> and concatenated with the VLM features fed to the expert. All discrete
+            code supervision is removed; at inference no tokenizer, codebook, or language model is involved.
+          </span>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- TOKENIZER ANALYSIS                                                      -->
+<!-- ====================================================================== -->
+<section>
+  <div class="wrap">
+    <div class="narrow">
+      <p class="eyebrow">Analysis</p>
+      <h2>Does the shared codebook actually share?</h2>
+      <p class="lede">
+        We check two things: cross-domain alignment in the shared space with clear domain separation in the
+        specific space, and diverse, non-collapsed codebook utilization.
+      </p>
+    </div>
+
+    <figure>
+      <a href="static/images/tsne.png" target="_blank" rel="noopener">
+        <img src="static/images/tsne.jpg"
+             alt="t-SNE of shared and specific token distributions, plus motion visualization of the same shared code.">
+      </a>
+      <figcaption>
+        <b>Top row &mdash; latent structure.</b> Joint t-SNE (cosine distance) of quantized codebook vectors.
+        In the <em>shared</em> token space, human (blue) and robot (red) tokens overlap in compact clusters,
+        and tokens assigned to the same code id form local groups. In the <em>specific</em> token space the
+        two domains separate cleanly, exactly as intended: the per-domain codebooks encode domain-private
+        semantics (rotation, gripper, hand joints) that need not be shared.
+        <br><br>
+        <b>Bottom row &mdash; what a shared code means.</b> For a shared code activated by both the human and
+        the robot within a single episode, we plot the corresponding 3D end-effector / wrist trajectory
+        segments. Both trace a visibly similar top-to-bottom placing motion that lowers the end-effector to
+        set down the grasped object &mdash; a single shared code grounds to the same physical spatial intent in
+        both embodiments.
+      </figcaption>
+    </figure>
+
+    <div class="narrow">
+      <div class="tablecard">
+        <h4>Stage 1 codebook utilization</h4>
+        <p class="cap">
+          &ldquo;Co&rdquo; is the number of codes co-activated in both domains.
+          H = human, R = RoboTwin&nbsp;2.0, G = RoboCasa&nbsp;GR1. Codebook size is 64 for both the shared
+          and the specific codebooks.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Domain</th><th>Activated</th><th>Co</th>
+                <th>Domain</th><th>Activated</th><th>Co</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="ours">
+                <td>Shared</td>
+                <td>H &amp; R</td><td>59</td><td>58</td>
+                <td>H &amp; G</td><td>64</td><td>64</td>
+              </tr>
+              <tr>
+                <td>Specific</td>
+                <td>H</td><td>64</td><td class="dash">&ndash;</td>
+                <td>H</td><td>64</td><td class="dash">&ndash;</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td>R</td><td>64</td><td class="dash">&ndash;</td>
+                <td>G</td><td>64</td><td class="dash">&ndash;</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p style="margin-top:16px">
+        Both codebooks activate nearly all codes, and almost every active code in the shared codebook is
+        used by <em>both</em> the human and the robot domain &mdash; actions from different embodiments do share
+        common motion patterns in the latent space, rather than partitioning the codebook by domain.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- EXPERIMENTS                                                             -->
+<!-- ====================================================================== -->
+<section class="alt">
+  <div class="wrap narrow">
+    <p class="eyebrow">Experiments</p>
+    <h2>Results</h2>
+    <p class="lede">
+      <strong>EXE<sub>base</sub></strong> is an ablated variant using the same framework and backbone but
+      trained directly on downstream robot data &mdash; no large-scale robot pretraining, and no Stage&nbsp;1&ndash;2.
+      The gap between EXE and EXE<sub>base</sub> therefore isolates the benefit of our pretraining.
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="lab">RoboTwin 2.0</div>
+        <div class="val">76.2<small>%</small></div>
+        <div class="sub">vs. 66.8% base <span class="delta">+9.4</span></div>
+      </div>
+      <div class="stat">
+        <div class="lab">RoboCasa GR1</div>
+        <div class="val">56.6<small>%</small></div>
+        <div class="sub">vs. 52.0% base <span class="delta">+4.6</span></div>
+      </div>
+      <div class="stat">
+        <div class="lab">Real world &middot; in-distribution</div>
+        <div class="val">80<small>%</small></div>
+        <div class="sub">vs. 60% base <span class="delta">+20</span></div>
+      </div>
+      <div class="stat">
+        <div class="lab">Real world &middot; unseen objects</div>
+        <div class="val">30<small>%</small></div>
+        <div class="sub">vs. 10% base <span class="delta">+20</span></div>
+      </div>
+    </div>
+
+    <h3>RoboTwin 2.0 &middot; bimanual gripper</h3>
+    <p>
+      A bimanual benchmark on an ALOHA dual-arm robot with 50 tabletop tasks, each tested under an
+      <em>easy</em> split (fixed scenes) and a <em>hard</em> split (randomized backgrounds, lighting, object
+      layouts), 50 episodes per task per split.
+    </p>
+    <div class="tablecard">
+      <h4>Success rate (%) on RoboTwin 2.0</h4>
+      <p class="cap">RPT = robot-pretraining on large-scale teleoperated data.</p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Model</th><th>Params</th><th>RPT</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>SmolVLA</td><td>0.5B</td><td><span class="cross">&#10007;</span></td><td>59.2</td><td>60.8</td><td>60.0</td></tr>
+            <tr><td>X-VLA</td><td>0.8B</td><td><span class="tick">&#10003;</span></td><td>72.9</td><td>72.8</td><td>72.9</td></tr>
+            <tr><td>TurboVLA</td><td>0.4B</td><td><span class="cross">&#10007;</span></td><td class="dash">&ndash;</td><td class="dash">&ndash;</td><td>60.2</td></tr>
+            <tr class="base"><td>EXE<sub>base</sub></td><td>0.8B</td><td><span class="cross">&#10007;</span></td><td>68.4</td><td>65.2</td><td>66.8</td></tr>
+            <tr class="ours"><td>EXE</td><td>0.8B</td><td><span class="cross">&#10007;</span></td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:16px">
+      EXE reaches 76.2% average, outperforming SmolVLA, TurboVLA, and even X-VLA &mdash; despite X-VLA
+      benefiting from large-scale teleoperated robot pretraining that EXE deliberately excludes, in order to
+      isolate the effect of egocentric human video.
+    </p>
+
+    <h3>RoboCasa GR1 &middot; dexterous hand</h3>
+    <p>
+      24 humanoid household tasks with articulated objects and multi-stage goals (~1,000 demonstrations per
+      task, ~24K trajectories), presenting greater embodiment complexity than typical single-arm benchmarks.
+    </p>
+    <div class="grid2">
+      <div class="tablecard">
+        <h4>RoboCasa GR1</h4>
+        <p class="cap">Average success rate (%) over 24 tasks.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Method</th><th>AVG</th></tr></thead>
+            <tbody>
+              <tr><td>StarVLA-GR00T</td><td>47.8</td></tr>
+              <tr class="base"><td>EXE<sub>base</sub></td><td>52.0</td></tr>
+              <tr class="ours"><td>EXE</td><td>56.6</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tablecard">
+        <h4>Stage 2 co-training ratio</h4>
+        <p class="cap">Ego : robot data mixing ratio, RoboTwin success rate (%).</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Ego : Robot</th><th>Easy</th><th>Hard</th><th>AVG</th></tr></thead>
+            <tbody>
+              <tr class="ours"><td>1 : 1</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
+              <tr><td>2 : 1</td><td>75.5</td><td>73.2</td><td>74.3</td></tr>
+              <tr><td>3 : 1</td><td>76.0</td><td>75.0</td><td>75.5</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:16px">
+      The shared spatial-intent vocabulary learned from human video benefits not only gripper-based
+      manipulation but also dexterous-hand tasks. On the mixing ratio, a balanced <b>1:1</b> works best:
+      over-weighting robot data biases the backbone toward the robot domain and erodes the transferable
+      shared representation.
+    </p>
+
+    <h3>Ablations</h3>
+    <div class="tablecard">
+      <h4>Component ablation on RoboTwin (%)</h4>
+      <p class="cap">
+        Stage&nbsp;1 alignment losses and the Stage&nbsp;3 Bridge Feature each contribute independently.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>InfoNCE</th><th>Language align</th><th>Bridge Feature</th>
+              <th>Easy</th><th>Hard</th><th>AVG</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="cross">&#10007;</span></td><td><span class="cross">&#10007;</span></td><td><span class="cross">&#10007;</span></td>
+              <td>74.1</td><td>72.3</td><td>73.2</td>
+            </tr>
+            <tr>
+              <td><span class="tick">&#10003;</span></td><td><span class="cross">&#10007;</span></td><td><span class="cross">&#10007;</span></td>
+              <td>74.6</td><td>73.0</td><td>73.8</td>
+            </tr>
+            <tr>
+              <td><span class="tick">&#10003;</span></td><td><span class="tick">&#10003;</span></td><td><span class="cross">&#10007;</span></td>
+              <td>75.2</td><td>73.0</td><td>74.1</td>
+            </tr>
+            <tr class="ours">
+              <td><span class="tick">&#10003;</span></td><td><span class="tick">&#10003;</span></td><td><span class="tick">&#10003;</span></td>
+              <td>75.6</td><td>76.8</td><td>76.2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:16px">
+      Adding shared-code InfoNCE stabilizes the shared codebook. Language-guided relational distillation
+      helps further, precisely because the frozen language embedding is embodiment-invariant and can guide
+      semantically equivalent actions onto nearby codes even when their trajectories differ &mdash; the regime
+      where purely spatial InfoNCE has no positive pairs. Finally, the Bridge Feature confirms that the
+      shared action-token features from Stage&nbsp;2 transfer effectively into Stage&nbsp;3 policy learning.
+    </p>
+
+    <div class="tablecard">
+      <h4>Generalization across human data sources (%)</h4>
+      <p class="cap">Robot domain fixed to RoboTwin&nbsp;2.0; the egocentric source is varied.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Human dataset</th><th>Robot dataset</th><th>Easy</th><th>Hard</th><th>AVG</th></tr></thead>
+          <tbody>
+            <tr><td>VITRA-1M</td><td>RoboTwin 2.0</td><td>75.2</td><td>75.2</td><td>75.2</td></tr>
+            <tr><td>EgoDex</td><td>RoboTwin 2.0</td><td>75.2</td><td>76.4</td><td>75.8</td></tr>
+            <tr class="ours"><td>EgoLive</td><td>RoboTwin 2.0</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin-top:16px">
+      All three egocentric sources improve over EXE<sub>base</sub>, so EXE is not tied to one specific
+      dataset. EgoLive performs best, likely because its naturalistic hand-manipulation scenarios provide
+      richer spatial-intent coverage that aligns well with bimanual tabletop manipulation.
+    </p>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- REAL WORLD                                                              -->
+<!-- ====================================================================== -->
+<section>
+  <div class="wrap">
+    <div class="narrow">
+      <p class="eyebrow">Real robot</p>
+      <h2>Beyond simulation</h2>
+      <p class="lede">
+        An AgileX Piper bimanual platform, task &ldquo;sweep the rubbish,&rdquo; 2,450 teleoperated
+        demonstrations, 10 rollouts per evaluation group.
+      </p>
+    </div>
+
+    <figure>
+      <a href="static/images/real_world.png" target="_blank" rel="noopener">
+        <img src="static/images/real_world.jpg"
+             alt="Real-world rollouts of the sweep-the-rubbish task under default, colorful, and unseen-object settings.">
+      </a>
+      <figcaption>
+        <b>Real-world rollouts.</b> Top: in-distribution, default setting. Middle: in-distribution with
+        visually colorful objects. Bottom: out-of-distribution, with unseen objects placed in the scene as
+        distractors.
+      </figcaption>
+    </figure>
+
+    <div class="narrow">
+      <div class="tablecard">
+        <h4>Real-world success rate (%)</h4>
+        <p class="cap">10 rollouts per group on the physical platform.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Setting</th><th>EXE<sub>base</sub></th><th>EXE</th><th>&Delta;</th></tr></thead>
+            <tbody>
+              <tr><td>In-distribution</td><td>60</td><td><span class="best">80</span></td><td><span class="delta">+20</span></td></tr>
+              <tr><td>Putting unseen objects</td><td>10</td><td><span class="best">30</span></td><td><span class="delta">+20</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p style="margin-top:16px">
+        The in-distribution gain is most pronounced on visually colorful objects &mdash; e.g. a
+        broom-and-dustpan set with distinctly colored parts &mdash; suggesting that egocentric pretraining helps
+        the policy exploit rich color cues for more accurate manipulation. Under unseen-object distractors,
+        the three-fold relative improvement indicates stronger scene-level generalization.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- IMPLEMENTATION                                                          -->
+<!-- ====================================================================== -->
+<section class="alt">
+  <div class="wrap narrow">
+    <p class="eyebrow">Implementation</p>
+    <h2>Training setup</h2>
+    <div class="cards">
+      <div class="card">
+        <span class="n">STAGE 1</span>
+        <h4>Tokenizer</h4>
+        <p>
+          50k steps. Shared codebook size 64, per-domain specific codebook size 64, quantization
+          dimension 32.
+        </p>
+      </div>
+      <div class="card">
+        <span class="n">STAGE 2</span>
+        <h4>VLM pretraining</h4>
+        <p>
+          30k iterations of cross-entropy on shared action tokens, built on X-VLA with a Florence-2-large
+          backbone. Large-scale cross-embodiment robot data is deliberately excluded.
+        </p>
+      </div>
+      <div class="card">
+        <span class="n">STAGE 3</span>
+        <h4>Action expert</h4>
+        <p>
+          Randomly initialized and post-trained on robot data for 60k iterations, inheriting the
+          Stage&nbsp;2 representations.
+        </p>
+      </div>
+      <div class="card">
+        <span class="n">COMMON</span>
+        <h4>Optimization</h4>
+        <p>
+          Batch size 32, learning rate 6e&minus;4, 20k warmup steps, behavior cloning with an
+          &#8467;<sub>1</sub> loss, on 8&times; NVIDIA A800 GPUs.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================================== -->
+<!-- BIBTEX                                                                  -->
+<!-- ====================================================================== -->
+<section>
+  <div class="wrap narrow">
+    <h2>BibTeX</h2>
+    <pre><code>@inproceedings{exe2026,
+  title     = {EXE: Egocentric Cross-Embodiment Pretraining via
+               Factorized Latent Actions for VLA Models},
+  author    = {Anonymous Authors},
+  booktitle = {Under review},
+  year      = {2026}
+}</code></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap narrow">
+    <p>
+      This page describes work currently under double-blind review. Author and affiliation information is
+      withheld.
+    </p>
+    <p>
+      Figures are rendered from the submitted manuscript. Page layout is hand-written and loads no
+      third-party resources.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

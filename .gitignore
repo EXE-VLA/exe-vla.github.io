@@ -1,0 +1,8 @@
+# Intermediate render artifacts (do not commit)
+static/images/*_raw.png
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+*.swp

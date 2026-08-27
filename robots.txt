@@ -1,0 +1,5 @@
+# Blocked while the paper is under review.
+# REMOVE THIS FILE (or change to "Allow: /") when the page goes public,
+# and also delete the <meta name="robots" content="noindex, nofollow"> tag in index.html.
+User-agent: *
+Disallow: /
