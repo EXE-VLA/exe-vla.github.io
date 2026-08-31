@@ -29,7 +29,7 @@
 
 <!-- ======================== headline ======================== -->
 <div class="headline">
-  <h1>Factorizing Latent Actions for Human&#8209;to&#8209;Robot Transfer</h1>
+  <h1>EXE: Egocentric Cross&#8209;Embodiment Pretraining via Factorized Latent Actions for VLA Models</h1>
   <p class="deck">
     Not every part of an action is worth sharing across embodiments. We split the action, share only the
     part that transfers, and let language decide what counts as the same skill.
@@ -91,28 +91,30 @@
     <a class="anchor" href="#what-transfers" aria-hidden="true">#</a>
     Which parts of an action actually transfer?
   </h2>
-  <p>
-    Consider what a human hand and a parallel gripper genuinely have in common. Both must move to a location
-    in space. Reaching toward a cup, following a trajectory over a table, approaching a target &mdash; that
-    spatial intent is expressed as a <strong>3D position of the wrist or end-effector</strong>, and it means
-    the same thing regardless of what is attached to the end of the arm.
-  </p>
-  <p>
-    Now consider what they do not share. Finger joint angles, wrist rotation conventions, gripper open/close
-    geometry: these are properties of the hardware. A five-fingered MANO configuration has no counterpart in
-    a two-jaw gripper, and pretending otherwise only injects noise.
-  </p>
-  <p>
-    So rather than unifying the whole action, we <strong>factorize</strong> it. Each action vector is split by
-    a static routing table into a <i>shared group</i> &mdash; the 3D wrist or end-effector position, expressed
-    in the egocentric camera frame &mdash; and a <i>specific group</i> holding everything embodiment-dependent.
-    The shared group is quantized by one codebook trained jointly on human and robot data. The specific group
-    gets a private codebook per domain. Residual quantization operates <i>within</i> each group, so the shared
-    codebook never sees an embodiment-specific dimension.
-  </p>
 </div>
 
-<div class="wide">
+<div class="wide split">
+  <div class="split-text">
+    <p>
+      Consider what a human hand and a parallel gripper genuinely have in common. Both must move to a location
+      in space. Reaching toward a cup, following a trajectory over a table, approaching a target &mdash; that
+      spatial intent is expressed as a <strong>3D position of the wrist or end-effector</strong>, and it means
+      the same thing regardless of what is attached to the end of the arm.
+    </p>
+    <p>
+      Now consider what they do not share. Finger joint angles, wrist rotation conventions, gripper open/close
+      geometry: these are properties of the hardware. A five-fingered MANO configuration has no counterpart in
+      a two-jaw gripper, and pretending otherwise only injects noise.
+    </p>
+    <p>
+      So rather than unifying the whole action, we <strong>factorize</strong> it. Each action vector is split by
+      a static routing table into a <i>shared group</i> &mdash; the 3D wrist or end-effector position, expressed
+      in the egocentric camera frame &mdash; and a <i>specific group</i> holding everything embodiment-dependent.
+      The shared group is quantized by one codebook trained jointly on human and robot data. The specific group
+      gets a private codebook per domain. Residual quantization operates <i>within</i> each group, so the shared
+      codebook never sees an embodiment-specific dimension.
+    </p>
+  </div>
   <div class="panel">
     <div class="dots"></div>
     <div class="inner">
@@ -131,12 +133,20 @@
   </div>
 </div>
 
-<!-- ======================== language alignment ======================== -->
+<!-- ======================== method: three stages ======================== -->
 <div class="prose">
-  <h2 id="language">
-    <a class="anchor" href="#language" aria-hidden="true">#</a>
-    Why contrastive alignment alone is not enough
+  <h2 id="method">
+    <a class="anchor" href="#method" aria-hidden="true">#</a>
+    The method, in three stages
   </h2>
+  <p>
+    With the factorization fixed, the rest of EXE is a three-stage recipe. <b>Stage 1</b> trains the
+    factorized tokenizer and freezes it. <b>Stage 2</b> co-trains a VLM backbone on human and robot data to
+    reshape its representations. <b>Stage 3</b> fine-tunes an action expert for continuous control. We walk
+    through them in order.
+  </p>
+
+  <h3 id="stage1">Stage 1 &mdash; Training Factorized Action Tokenizer</h3>
   <p>
     Having a shared subspace is not the same as having an aligned one. The obvious tool is contrastive
     learning: pull together human and robot latents that land on the same shared code, push apart those that
@@ -172,29 +182,28 @@
     encoder input &mdash; it shapes the distribution of the shared latent space during tokenizer training and is
     then discarded. Nothing at deployment depends on it.
   </p>
-
-  <h2 id="pipeline">
-    <a class="anchor" href="#pipeline" aria-hidden="true">#</a>
-    From discrete codes back to continuous control
-  </h2>
-  <p>
-    The tokenizer gives us a vocabulary; the remaining question is how a VLA absorbs it. We use three stages.
-    Stage 1 trains the factorized tokenizer, then freezes it. Stage 2 co-trains a Florence-2-large backbone on
-    egocentric human video and robot demonstrations, alternating between domains: on human steps the model
-    predicts only shared codes, on robot steps it predicts shared <i>and</i> robot-specific codes. No action
-    expert is involved &mdash; this stage exists only to reshape the backbone's internal representations.
-  </p>
-  <p>
-    Stage 3 drops discrete supervision entirely and trains an action transformer to regress continuous
-    actions on downstream robot data. To make sure the Stage 2 knowledge is actually reused rather than
-    quietly forgotten, we extract the backbone's hidden states at the action-placeholder positions as
-    <strong>Bridge Features</strong> and concatenate them into the conditioning context. At inference there is
-    no tokenizer, no codebook, and no language model: the discrete vocabulary was a training-time device all
-    along.
-  </p>
 </div>
 
-<div class="wide">
+<div class="wide split">
+  <div class="split-text">
+    <h3 id="stage2">Stage 2 &mdash; Cross-Embodiment VLM Pretraining</h3>
+    <p>
+      The tokenizer gives us a vocabulary; the remaining question is how a VLA absorbs it. <b>Stage 2</b>
+      co-trains a Florence-2-large backbone on egocentric human video and robot demonstrations, alternating
+      between domains: on human steps the model predicts only shared codes, on robot steps it predicts shared
+      <i>and</i> robot-specific codes. No action expert is involved &mdash; this stage exists only to reshape
+      the backbone's internal representations.
+    </p>
+    <h3 id="stage3">Stage 3 &mdash; VLA Fine-tuning</h3>
+    <p>
+      Stage 3 drops discrete supervision entirely and trains an action transformer to regress continuous
+      actions on downstream robot data. To make sure the Stage 2 knowledge is actually reused rather than
+      quietly forgotten, we extract the backbone's hidden states at the action-placeholder positions as
+      <strong>Bridge Features</strong> and concatenate them into the conditioning context. At inference there is
+      no tokenizer, no codebook, and no language model: the discrete vocabulary was a training-time device all
+      along.
+    </p>
+  </div>
   <div class="panel">
     <div class="dots"></div>
     <div class="inner">
@@ -253,37 +262,36 @@
 </div>
 
 <div class="prose">
-  <p class="tbl-title">Stage 1 codebook utilization</p>
-  <div class="tbl-wrap">
+  <p class="tbl-title tbl-title-center">Stage 1 codebook utilization</p>
+  <div class="tbl-wrap tbl-auto">
     <table>
       <thead>
         <tr>
           <th>Type</th>
-          <th>Domain</th><th>Activated</th><th>Co</th>
-          <th>Domain</th><th>Activated</th><th>Co</th>
+          <th>Domain</th><th>Activated</th><th>Co-Activated</th>
+          <th class="divider">Domain</th><th>Activated</th><th>Co-Activated</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="ours">
+        <tr>
           <td>Shared</td>
           <td>H &amp; R</td><td>59</td><td>58</td>
-          <td>H &amp; G</td><td>64</td><td>64</td>
+          <td class="divider">H &amp; G</td><td>64</td><td>64</td>
         </tr>
         <tr>
-          <td>Specific</td>
+          <td rowspan="2">Specific</td>
           <td>H</td><td>64</td><td class="dash">&ndash;</td>
-          <td>H</td><td>64</td><td class="dash">&ndash;</td>
+          <td class="divider">H</td><td>64</td><td class="dash">&ndash;</td>
         </tr>
         <tr>
-          <td></td>
           <td>R</td><td>64</td><td class="dash">&ndash;</td>
-          <td>G</td><td>64</td><td class="dash">&ndash;</td>
+          <td class="divider">G</td><td>64</td><td class="dash">&ndash;</td>
         </tr>
       </tbody>
     </table>
   </div>
   <p class="tbl-note">
-    Codebook size is 64 throughout. &ldquo;Co&rdquo; counts codes co-activated in both domains.
+    Codebook size is 64 throughout. &ldquo;Co-Activated&rdquo; counts codes co-activated in both domains.
     H = human, R = RoboTwin 2.0, G = RoboCasa GR1. Nearly every code is used, and nearly every active shared
     code is used by both domains &mdash; the codebook is not quietly partitioning itself by embodiment.
   </p>
@@ -362,11 +370,20 @@
   </p>
 </div>
 
+<div class="prose">
+  <p>
+    Against published baselines, EXE reaches 76.2% average. That is ahead of SmolVLA and TurboVLA, and also
+    ahead of X-VLA &mdash; which is the comparison we find most informative, because X-VLA benefits from
+    large-scale teleoperated robot pretraining that we deliberately excluded. Human video, routed through a
+    factorized action space, substitutes for a substantial amount of robot data.
+  </p>
+</div>
+
 <div class="wide">
   <div class="panel">
     <div class="dots"></div>
     <div class="inner">
-      <div class="panel-title">RoboTwin 2.0: easy and hard splits</div>
+      <div class="panel-title">RoboTwin 2.0 &mdash; average success rate vs. prior VLAs</div>
       <div class="chart chart-pad">
         <div class="ylab">Success rate (%)</div>
         <div class="ticks">
@@ -376,59 +393,42 @@
           <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div class="groups">
             <div class="group">
-              <div class="bar base" style="height:178px"><span class="v">68.4</span></div>
-              <div class="bar ours" style="height:197px"><span class="v">75.6</span></div>
-              <div class="xlab">Easy<br>fixed scenes</div>
+              <div class="bar other" style="height:156px"><span class="v">60.0</span></div>
+              <div class="xlab">SmolVLA<br>0.5B</div>
             </div>
             <div class="group">
-              <div class="bar base" style="height:170px"><span class="v">65.2</span></div>
-              <div class="bar ours" style="height:200px"><span class="v">76.8</span></div>
-              <div class="xlab">Hard<br>randomized</div>
+              <div class="bar other" style="height:157px"><span class="v">60.2</span></div>
+              <div class="xlab">TurboVLA<br>0.4B</div>
+            </div>
+            <div class="group">
+              <div class="bar other" style="height:190px"><span class="v">72.9</span></div>
+              <div class="xlab">X-VLA<br>0.8B &middot; robot pretrain</div>
             </div>
             <div class="group">
               <div class="bar base" style="height:174px"><span class="v">66.8</span></div>
+              <div class="xlab">EXE<sub>base</sub><br>0.8B</div>
+            </div>
+            <div class="group">
               <div class="bar ours" style="height:198px"><span class="v">76.2</span></div>
-              <div class="xlab">Average</div>
+              <div class="xlab">EXE<br>0.8B</div>
             </div>
           </div>
         </div>
       </div>
       <div class="legend">
-        <div class="key"><span class="sw base"></span>EXE<sub>base</sub></div>
-        <div class="key"><span class="sw ours"></span>EXE</div>
+        <div class="key"><span class="sw other"></span>Prior VLAs</div>
+        <div class="key"><span class="sw base"></span>EXE<sub>base</sub> &mdash; no pretraining</div>
+        <div class="key"><span class="sw ours"></span>EXE &mdash; egocentric pretraining</div>
       </div>
-      <div class="axis-note">50 tasks, 50 episodes per task per split.</div>
+      <div class="axis-note">
+        Average success rate (%) over RoboTwin 2.0 easy and hard splits. X-VLA additionally uses large-scale
+        teleoperated robot pretraining, which EXE does not.
+      </div>
     </div>
   </div>
 </div>
 
 <div class="prose">
-  <p>
-    Against published baselines, EXE reaches 76.2% average. That is ahead of SmolVLA and TurboVLA, and also
-    ahead of X-VLA &mdash; which is the comparison we find most informative, because X-VLA benefits from
-    large-scale teleoperated robot pretraining that we deliberately excluded. Human video, routed through a
-    factorized action space, substitutes for a substantial amount of robot data.
-  </p>
-
-  <p class="tbl-title">RoboTwin 2.0 &mdash; comparison with prior VLAs</p>
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr><th>Model</th><th>Params</th><th>Robot pretrain</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>SmolVLA</td><td>0.5B</td><td><span class="cross">no</span></td><td>59.2</td><td>60.8</td><td>60.0</td></tr>
-        <tr><td>TurboVLA</td><td>0.4B</td><td><span class="cross">no</span></td><td class="dash">&ndash;</td><td class="dash">&ndash;</td><td>60.2</td></tr>
-        <tr><td>X-VLA</td><td>0.8B</td><td><span class="tick">yes</span></td><td>72.9</td><td>72.8</td><td>72.9</td></tr>
-        <tr><td>EXE<sub>base</sub></td><td>0.8B</td><td><span class="cross">no</span></td><td>68.4</td><td>65.2</td><td>66.8</td></tr>
-        <tr class="ours"><td>EXE</td><td>0.8B</td><td><span class="cross">no</span></td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="tbl-note">
-    Success rate (%). &ldquo;Robot pretrain&rdquo; means pretraining on large-scale teleoperated robot data,
-    which EXE does not use.
-  </p>
 
   <h2 id="realworld">
     <a class="anchor" href="#realworld" aria-hidden="true">#</a>
@@ -453,14 +453,72 @@
   <div class="panel">
     <div class="dots"></div>
     <div class="inner">
-      <div class="panel-title">Sweep the rubbish &mdash; AgileX Piper bimanual platform</div>
-      <a href="static/images/real_world.png" target="_blank" rel="noopener">
-        <img src="static/images/real_world.jpg" alt="Real-world rollouts under default, colorful, and unseen-object settings.">
-      </a>
+      <div class="panel-title">Sweep the Rubbish &mdash; AgileX Piper bimanual platform</div>
+      <div class="vid-grid">
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/sweep-default.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">2&times;</span>
+          </div>
+          <figcaption>Default Setting</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/sweep-colorful.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">2&times;</span>
+          </div>
+          <figcaption>Colorful Setting</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/sweep-unseen.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">2&times;</span>
+          </div>
+          <figcaption>Putting Unseen Objects #1</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/sweep-unseen2.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">2&times;</span>
+          </div>
+          <figcaption>Putting Unseen Objects #2</figcaption>
+        </figure>
+      </div>
+      <div class="vid-subtitle">Failed cases</div>
+      <div class="vid-grid" data-rate="3">
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/failed-1.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">3&times;</span>
+          </div>
+          <figcaption>Failed Case #1</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/failed-2.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">3&times;</span>
+          </div>
+          <figcaption>Failed Case #2</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/failed-3.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">3&times;</span>
+          </div>
+          <figcaption>Failed Case #3</figcaption>
+        </figure>
+        <figure class="vid">
+          <div class="vid-frame">
+            <video src="static/videos/failed-4.mp4" controls playsinline preload="metadata"></video>
+            <span class="speed-badge">3&times;</span>
+          </div>
+          <figcaption>Failed Case #4</figcaption>
+        </figure>
+      </div>
     </div>
     <div class="panel-note">
-      Top: in-distribution, default setting. Middle: in-distribution with colorful objects. Bottom:
-      out-of-distribution, unseen objects placed in the scene as distractors.
+      From left: in-distribution default setting; in-distribution with colorful objects; and two
+      out-of-distribution rollouts with unseen objects placed in the scene as distractors.
     </div>
   </div>
 </div>
@@ -471,93 +529,78 @@
     <a class="anchor" href="#ablations" aria-hidden="true">#</a>
     What each piece contributes
   </h2>
-  <p>
-    Three components could each plausibly be doing nothing, so we removed them one at a time.
-  </p>
+</div>
 
-  <p class="tbl-title">Component ablation on RoboTwin 2.0</p>
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr><th>InfoNCE</th><th>Language align</th><th>Bridge feature</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
-      </thead>
-      <tbody>
-        <tr><td class="cross">no</td><td class="cross">no</td><td class="cross">no</td><td>74.1</td><td>72.3</td><td>73.2</td></tr>
-        <tr><td class="tick">yes</td><td class="cross">no</td><td class="cross">no</td><td>74.6</td><td>73.0</td><td>73.8</td></tr>
-        <tr><td class="tick">yes</td><td class="tick">yes</td><td class="cross">no</td><td>75.2</td><td>73.0</td><td>74.1</td></tr>
-        <tr class="ours"><td class="tick">yes</td><td class="tick">yes</td><td class="tick">yes</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
-      </tbody>
-    </table>
+<div class="wide split split-tbl">
+  <div class="split-text">
+    <p>
+      Three components could each plausibly be doing nothing, so we removed them one at a time.
+    </p>
+    <p>
+      InfoNCE contributes a modest but consistent gain by stabilizing the shared codebook. Language-guided
+      distillation adds more, and it adds it in the regime we predicted &mdash; where trajectories differ enough
+      that InfoNCE has no positive pairs to work with. The Bridge feature gives the largest single jump, which
+      is a useful negative result about the rest of the pipeline: shaping the backbone in Stage 2 is not
+      sufficient on its own, you also have to give Stage 3 an explicit path back to those representations.
+    </p>
   </div>
-  <p class="tbl-note">
-    Success rate (%). InfoNCE and language alignment are Stage 1 losses; the Bridge feature is a Stage 3
-    mechanism.
-  </p>
-  <p>
-    InfoNCE contributes a modest but consistent gain by stabilizing the shared codebook. Language-guided
-    distillation adds more, and it adds it in the regime we predicted &mdash; where trajectories differ enough
-    that InfoNCE has no positive pairs to work with. The Bridge feature gives the largest single jump, which
-    is a useful negative result about the rest of the pipeline: shaping the backbone in Stage 2 is not
-    sufficient on its own, you also have to give Stage 3 an explicit path back to those representations.
-  </p>
-
-  <h3>Mixing ratio, and whether any of this depends on EgoLive</h3>
-  <p>
-    Two more things worth knowing. First, the human-to-robot ratio in Stage 2 co-training matters, and the
-    balanced 1:1 mixture wins &mdash; over-weighting robot data biases the backbone back toward the robot domain
-    and erodes the shared representation we just paid to build. Second, the method is not an artifact of one
-    dataset: swapping EgoLive for VITRA-1M or EgoDex still beats the no-pretraining baseline by a wide margin.
-  </p>
-
-  <p class="tbl-title">Stage 2 co-training ratio, and human data source</p>
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr><th>Setting</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
-      </thead>
-      <tbody>
-        <tr class="ours"><td>EgoLive, ego : robot = 1 : 1</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
-        <tr><td>EgoLive, ego : robot = 2 : 1</td><td>75.5</td><td>73.2</td><td>74.3</td></tr>
-        <tr><td>EgoLive, ego : robot = 3 : 1</td><td>76.0</td><td>75.0</td><td>75.5</td></tr>
-        <tr><td>EgoDex, 1 : 1</td><td>75.2</td><td>76.4</td><td>75.8</td></tr>
-        <tr><td>VITRA-1M, 1 : 1</td><td>75.2</td><td>75.2</td><td>75.2</td></tr>
-      </tbody>
-    </table>
+  <div class="split-fig">
+    <p class="tbl-title tbl-title-center">Component ablation on RoboTwin 2.0</p>
+    <div class="tbl-wrap tbl-auto">
+      <table>
+        <thead>
+          <tr><th>InfoNCE</th><th>Language align</th><th>Bridge feature</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td>74.1</td><td>72.3</td><td>73.2</td></tr>
+          <tr><td class="tick">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td>74.6</td><td>73.0</td><td>73.8</td></tr>
+          <tr><td class="tick">&check;</td><td class="tick">&check;</td><td class="cross">&times;</td><td>75.2</td><td>73.0</td><td>74.1</td></tr>
+          <tr class="ours"><td class="tick">&check;</td><td class="tick">&check;</td><td class="tick">&check;</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tbl-note">
+      Success rate (%). InfoNCE and language alignment are Stage 1 losses; the Bridge feature is a Stage 3
+      mechanism.
+    </p>
   </div>
-  <p class="tbl-note">
-    Success rate (%) on RoboTwin 2.0, robot domain held fixed. EgoLive performs best, plausibly because its
-    naturalistic hand-manipulation scenarios cover spatial intent that lines up well with bimanual tabletop
-    tasks.
-  </p>
+</div>
 
-  <h2 id="setup">
-    <a class="anchor" href="#setup" aria-hidden="true">#</a>
-    Setup
-  </h2>
-  <p>
-    Stage 1 runs 50k steps with a shared codebook of 64 entries, a specific codebook of 64 per domain, and a
-    quantization dimension of 32. Stages 2 and 3 are built on X-VLA with a Florence-2-large backbone: 30k
-    iterations of cross-entropy on shared action tokens, then 60k iterations of continuous regression with a
-    randomly initialized action expert. Everything uses batch size 32, learning rate 6e&minus;4, 20k warmup
-    steps, and behavior cloning with an &#8467;<sub>1</sub> loss, on 8&times; NVIDIA A800 GPUs.
-  </p>
+<div class="wide split split-tbl">
+  <div class="split-text">
+    <h3>Mixing ratio, and whether any of this depends on EgoLive</h3>
+    <p>
+      Two more things worth knowing. First, the human-to-robot ratio in Stage 2 co-training matters, and the
+      balanced 1:1 mixture wins &mdash; over-weighting robot data biases the backbone back toward the robot domain
+      and erodes the shared representation we just paid to build. Second, the method is not an artifact of one
+      dataset: swapping EgoLive for VITRA-1M or EgoDex still beats the no-pretraining baseline by a wide margin.
+    </p>
+  </div>
+  <div class="split-fig">
+    <p class="tbl-title tbl-title-center">Stage 2 co-training ratio, and human data source</p>
+    <div class="tbl-wrap tbl-auto">
+      <table>
+        <thead>
+          <tr><th>Setting</th><th>Easy</th><th>Hard</th><th>AVG</th></tr>
+        </thead>
+        <tbody>
+          <tr class="ours"><td>EgoLive, ego : robot = 1 : 1</td><td>75.6</td><td>76.8</td><td>76.2</td></tr>
+          <tr><td>EgoLive, ego : robot = 2 : 1</td><td>75.5</td><td>73.2</td><td>74.3</td></tr>
+          <tr><td>EgoLive, ego : robot = 3 : 1</td><td>76.0</td><td>75.0</td><td>75.5</td></tr>
+          <tr><td>EgoDex, 1 : 1</td><td>75.2</td><td>76.4</td><td>75.8</td></tr>
+          <tr><td>VITRA-1M, 1 : 1</td><td>75.2</td><td>75.2</td><td>75.2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tbl-note">
+      Success rate (%) on RoboTwin 2.0, robot domain held fixed. EgoLive performs best, plausibly because its
+      naturalistic hand-manipulation scenarios cover spatial intent that lines up well with bimanual tabletop
+      tasks.
+    </p>
+  </div>
+</div>
 
-  <h2 id="takeaway">
-    <a class="anchor" href="#takeaway" aria-hidden="true">#</a>
-    Takeaway
-  </h2>
-  <p>
-    The useful idea here is small and, in hindsight, obvious: decide what to share by <i>semantic role</i>
-    rather than by residual level or by hoping a single codebook sorts it out. Position transfers across
-    embodiments; kinematics does not. Once the action is split that way, a shared vocabulary can be aligned
-    with language rather than geometry alone, and the same pretraining pays off on a parallel gripper and a
-    dexterous hand without any retargeting or paired demonstrations.
-  </p>
-  <p>
-    What we have not shown is scale. Our Stage 2 deliberately excludes large-scale robot data in order to
-    isolate the effect of human video, which makes the comparison clean but leaves open how factorized latent
-    actions interact with a genuinely large pretraining mixture. That is the experiment we want to run next.
-  </p>
+<div class="prose">
 
   <h2 id="bibtex">
     <a class="anchor" href="#bibtex" aria-hidden="true">#</a>
@@ -576,6 +619,21 @@
   <p>Work under double-blind review. Author and affiliation information is withheld.</p>
   <p>Figures rendered from the submitted manuscript. This page loads no third-party resources.</p>
 </footer>
+
+<script>
+  document.querySelectorAll('.vid-grid').forEach(function (grid) {
+    var rate = parseFloat(grid.getAttribute('data-rate')) || 2;
+    grid.querySelectorAll('.vid-frame video').forEach(function (v) {
+      var setRate = function () { v.playbackRate = rate; };
+      setRate();
+      v.addEventListener('loadedmetadata', setRate);
+      v.addEventListener('play', setRate);
+      v.addEventListener('ratechange', function () {
+        if (v.playbackRate !== rate) v.playbackRate = rate;
+      });
+    });
+  });
+</script>
 
 </body>
 </html>

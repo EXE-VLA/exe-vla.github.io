@@ -1,6 +1,9 @@
 # Intermediate render artifacts (do not commit)
 static/images/*_raw.png
 
+# Raw camera video originals (web copies live in static/videos/)
+/videos/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db

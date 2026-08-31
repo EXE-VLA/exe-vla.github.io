@@ -26,7 +26,7 @@
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
            Georgia, "Times New Roman", serif;
 
-  --prose: 768px;
+  --prose: 1100px;
   --wide: 1100px;
 }
 
@@ -47,6 +47,38 @@ body {
 
 .prose { max-width: var(--prose); margin: 0 auto; }
 .wide  { max-width: var(--wide);  margin: 0 auto; }
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 36px;
+  align-items: start;
+}
+.split .panel { margin: 0; }
+.split-text > :first-child { margin-top: 0; }
+.split-text > :last-child { margin-bottom: 0; }
+.split-text h3 { margin-top: 28px; }
+.split-tbl { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.split-tbl + .split-tbl { margin-top: 44px; }
+.split-fig { min-width: 0; }
+.split-fig > :first-child { margin-top: 0; }
+.split-fig > :last-child { margin-bottom: 0; }
+.split-fig .tbl-title { margin-top: 0; }
+.split-fig .tbl-auto { max-width: 100%; width: fit-content; margin-left: auto; margin-right: auto; padding: 0 8px; }
+.split-fig table { font-size: 11.5px; }
+.split-fig thead th {
+  white-space: normal;
+  padding: 8px 8px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  line-height: 1.25;
+}
+.split-fig tbody td { padding: 7px 8px; white-space: nowrap; }
+.split-fig tbody td:first-child { white-space: normal; line-height: 1.35; }
+@media (max-width: 860px) {
+  .split { grid-template-columns: 1fr; gap: 0; align-items: stretch; }
+  .split-tbl { grid-template-columns: 1fr; }
+}
 
 a { color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
@@ -81,13 +113,13 @@ a:hover { text-decoration-thickness: 2px; }
 /* --------------------------------- title --------------------------------- */
 
 .headline {
-  max-width: var(--prose);
+  max-width: var(--wide);
   margin: 0 auto;
 }
 h1 {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: clamp(32px, 5.4vw, 56px);
+  font-size: clamp(26px, 4vw, 40px);
   line-height: 1.1;
   color: var(--ink);
   margin: 0 0 18px;
@@ -124,7 +156,7 @@ h1 {
 p { margin: 0 0 20px; }
 h2 {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 26px;
   line-height: 1.25;
   color: var(--ink);
@@ -133,7 +165,7 @@ h2 {
 }
 h3 {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 20px;
   color: var(--ink);
   margin: 38px 0 12px;
@@ -231,6 +263,59 @@ code {
   height: auto;
   border: 1px solid #000;
   background: #fff;
+}
+.vid-grid {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.vid-subtitle {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--ink);
+  text-align: center;
+  font-weight: 700;
+  padding: 18px 0 14px;
+}
+.vid { margin: 0; flex: 0 0 auto; width: 360px; scroll-snap-align: start; }
+.vid-frame { position: relative; line-height: 0; }
+.vid-frame video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #000;
+  background: #000;
+}
+.speed-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  line-height: 1;
+  color: #fff;
+  background: rgba(0, 0, 0, .72);
+  border: 1px solid rgba(255, 255, 255, .85);
+  padding: 4px 7px;
+  pointer-events: none;
+}
+.vid figcaption {
+  margin-top: 8px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .vid { width: 280px; }
 }
 
 /* -------------------------------- pipeline -------------------------------- */
@@ -383,7 +468,14 @@ code {
   color: var(--ink);
   margin: 44px 0 10px;
 }
+.tbl-title-center { text-align: center; }
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--border); background: var(--panel); }
+.tbl-auto { width: auto; max-width: max-content; margin-left: auto; margin-right: auto; }
+.tbl-auto table { width: auto; margin: 0 auto; }
+.tbl-auto thead th.divider,
+.tbl-auto tbody td.divider { border-left: 1px solid #000; }
+.tbl-auto thead th,
+.tbl-auto tbody td { text-align: center; }
 table {
   width: 100%;
   border-collapse: collapse;
