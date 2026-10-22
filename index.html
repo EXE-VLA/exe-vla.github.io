@@ -37,8 +37,7 @@
 </div>
 
 <dl class="meta">
-  <dt>Status</dt><dd>Under double-blind review</dd>
-  <dt>Authors</dt><dd>Anonymous Authors</dd>
+  <dt>Authors</dt><dd>Qingyuan Cai, Bo Zhang, Yongzhen Huang, Jianyu Chen</dd>
   <dt>Paper</dt><dd><a href="static/paper/EXE_paper.pdf">EXE_paper.pdf</a></dd>
   <dt>Benchmarks</dt><dd>RoboTwin 2.0 &middot; RoboCasa GR1 &middot; AgileX Piper (real)</dd>
 </dl>
@@ -322,33 +321,52 @@
     <div class="dots"></div>
     <div class="inner">
       <div class="panel-title">Egocentric pretraining helps every embodiment we tried</div>
-      <div class="chart chart-pad">
-        <div class="ylab">Success rate (%)</div>
-        <div class="ticks">
-          <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
+      <div class="chart-pair chart-pad">
+        <div class="chart-unit">
+          <div class="chart-unit-title">Simulation</div>
+          <div class="chart">
+            <div class="ylab">Success rate (%)</div>
+            <div class="ticks">
+              <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
+            </div>
+            <div class="plot">
+              <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="groups">
+                <div class="group">
+                  <div class="bar base" style="height:174px"><span class="v">66.8</span></div>
+                  <div class="bar ours" style="height:198px"><span class="v">76.2</span></div>
+                  <div class="xlab">RoboTwin 2.0<br>bimanual gripper</div>
+                </div>
+                <div class="group">
+                  <div class="bar base" style="height:135px"><span class="v">52.0</span></div>
+                  <div class="bar ours" style="height:147px"><span class="v">56.6</span></div>
+                  <div class="xlab">RoboCasa GR1<br>dexterous hand</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="plot">
-          <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="groups">
-            <div class="group">
-              <div class="bar base" style="height:174px"><span class="v">66.8</span></div>
-              <div class="bar ours" style="height:198px"><span class="v">76.2</span></div>
-              <div class="xlab">RoboTwin 2.0<br>bimanual gripper</div>
+        <div class="chart-unit">
+          <div class="chart-unit-title">Real robot</div>
+          <div class="chart">
+            <div class="ylab">Success rate (%)</div>
+            <div class="ticks">
+              <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
             </div>
-            <div class="group">
-              <div class="bar base" style="height:135px"><span class="v">52.0</span></div>
-              <div class="bar ours" style="height:147px"><span class="v">56.6</span></div>
-              <div class="xlab">RoboCasa GR1<br>dexterous hand</div>
-            </div>
-            <div class="group">
-              <div class="bar base" style="height:156px"><span class="v">60</span></div>
-              <div class="bar ours" style="height:208px"><span class="v">80</span></div>
-              <div class="xlab">Real robot<br>in-distribution</div>
-            </div>
-            <div class="group">
-              <div class="bar base" style="height:26px"><span class="v">10</span></div>
-              <div class="bar ours" style="height:78px"><span class="v">30</span></div>
-              <div class="xlab">Real robot<br>unseen objects</div>
+            <div class="plot">
+              <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="groups">
+                <div class="group">
+                  <div class="bar base" style="height:156px"><span class="v">60</span></div>
+                  <div class="bar ours" style="height:208px"><span class="v">80</span></div>
+                  <div class="xlab">In-distribution</div>
+                </div>
+                <div class="group">
+                  <div class="bar base" style="height:26px"><span class="v">10</span></div>
+                  <div class="bar ours" style="height:78px"><span class="v">30</span></div>
+                  <div class="xlab">Unseen objects</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -609,7 +627,7 @@
   <pre><code>@inproceedings{exe2026,
   title     = {EXE: Egocentric Cross-Embodiment Pretraining via
                Factorized Latent Actions for VLA Models},
-  author    = {Anonymous Authors},
+  author    = {Cai, Qingyuan and Zhang, Bo and Huang, Yongzhen and Chen, Jianyu},
   booktitle = {Under review},
   year      = {2026}
 }</code></pre>

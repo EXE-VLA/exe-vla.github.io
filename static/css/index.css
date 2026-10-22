@@ -435,7 +435,26 @@ code {
   color: var(--ink);
 }
 .chart-pad { margin-bottom: 52px; }
-
+.chart-pair {
+  display: flex;
+  gap: 32px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.chart-unit {
+  flex: 0 0 max(360px, calc((100% - 32px) / 2));
+  min-width: 0;
+}
+.chart-unit-title {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  font-weight: 700;
+  color: var(--ink);
+}
 .legend {
   position: relative;
   display: flex;
