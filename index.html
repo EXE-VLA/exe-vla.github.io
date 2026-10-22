@@ -322,52 +322,33 @@
     <div class="dots"></div>
     <div class="inner">
       <div class="panel-title">Egocentric pretraining helps every embodiment we tried</div>
-      <div class="chart-pair chart-pad">
-        <div class="chart-unit">
-          <div class="chart-unit-title">Simulation</div>
-          <div class="chart">
-            <div class="ylab">Success rate (%)</div>
-            <div class="ticks">
-              <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
-            </div>
-            <div class="plot">
-              <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-              <div class="groups">
-                <div class="group">
-                  <div class="bar base" style="height:174px"><span class="v">66.8</span></div>
-                  <div class="bar ours" style="height:198px"><span class="v">76.2</span></div>
-                  <div class="xlab">RoboTwin 2.0<br>bimanual gripper</div>
-                </div>
-                <div class="group">
-                  <div class="bar base" style="height:135px"><span class="v">52.0</span></div>
-                  <div class="bar ours" style="height:147px"><span class="v">56.6</span></div>
-                  <div class="xlab">RoboCasa GR1<br>dexterous hand</div>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div class="chart chart-pad">
+        <div class="ylab">Success rate (%)</div>
+        <div class="ticks">
+          <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
         </div>
-        <div class="chart-unit">
-          <div class="chart-unit-title">Real robot</div>
-          <div class="chart">
-            <div class="ylab">Success rate (%)</div>
-            <div class="ticks">
-              <span>100</span><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span>
+        <div class="plot">
+          <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="groups">
+            <div class="group">
+              <div class="bar base" style="height:174px"><span class="v">66.8</span></div>
+              <div class="bar ours" style="height:198px"><span class="v">76.2</span></div>
+              <div class="xlab">RoboTwin 2.0<br>bimanual gripper</div>
             </div>
-            <div class="plot">
-              <div class="gridlines"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-              <div class="groups">
-                <div class="group">
-                  <div class="bar base" style="height:156px"><span class="v">60</span></div>
-                  <div class="bar ours" style="height:208px"><span class="v">80</span></div>
-                  <div class="xlab">In-distribution</div>
-                </div>
-                <div class="group">
-                  <div class="bar base" style="height:26px"><span class="v">10</span></div>
-                  <div class="bar ours" style="height:78px"><span class="v">30</span></div>
-                  <div class="xlab">Unseen objects</div>
-                </div>
-              </div>
+            <div class="group">
+              <div class="bar base" style="height:135px"><span class="v">52.0</span></div>
+              <div class="bar ours" style="height:147px"><span class="v">56.6</span></div>
+              <div class="xlab">RoboCasa GR1<br>dexterous hand</div>
+            </div>
+            <div class="group">
+              <div class="bar base" style="height:156px"><span class="v">60</span></div>
+              <div class="bar ours" style="height:208px"><span class="v">80</span></div>
+              <div class="xlab">Real robot<br>in-distribution</div>
+            </div>
+            <div class="group">
+              <div class="bar base" style="height:26px"><span class="v">10</span></div>
+              <div class="bar ours" style="height:78px"><span class="v">30</span></div>
+              <div class="xlab">Real robot<br>unseen objects</div>
             </div>
           </div>
         </div>
