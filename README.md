@@ -18,7 +18,6 @@ static/css/academic.css        its stylesheet
 static/images/*.jpg            web-sized figures (displayed inline)
 static/images/*.png            full-resolution figures (opened on click)
 static/images/*_raw.png        gitignored intermediate renders
-static/paper/EXE_paper.pdf     submitted manuscript
 robots.txt                     crawler block while under review
 .nojekyll                      serve files verbatim, skip Jekyll
 ```
